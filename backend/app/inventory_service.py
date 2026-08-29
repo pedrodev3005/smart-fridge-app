@@ -1,6 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.enums import InventoryMovementType
 from app.models import Inventory
 from app.product_service import get_product_by_id
 
@@ -43,6 +44,11 @@ class InventoryItemNotFoundError(Exception):
 class InsufficientInventoryError(Exception):
     pass
 
+
+class InvalidInventoryMovementTypeError(Exception):
+    pass
+
+
 def _validate_product_id(product_id: int) -> None:
     if (
         isinstance(product_id, bool)
@@ -62,6 +68,18 @@ def _validate_quantity(quantity: int) -> None:
     ):
         raise InvalidInventoryQuantityError(
             "A quantidade deve ser um número inteiro maior ou igual a 1."
+        )
+
+
+def _validate_movement_type(
+    movement_type: InventoryMovementType,
+) -> None:
+    if not isinstance(
+        movement_type,
+        InventoryMovementType,
+    ):
+        raise InvalidInventoryMovementTypeError(
+            "O tipo de movimentação deve ser 'entry' ou 'exit'."
         )
     
 
@@ -142,3 +160,25 @@ def remove_inventory_exit(
     db.flush()
 
     return inventory_item
+
+
+def process_inventory_movement(
+    db: Session,
+    product_id: int,
+    movement_type: InventoryMovementType,
+    quantity: int,
+) -> Inventory | None:
+    _validate_movement_type(movement_type)
+
+    if movement_type == InventoryMovementType.ENTRY:
+        return add_inventory_entry(
+            db,
+            product_id,
+            quantity,
+        )
+
+    return remove_inventory_exit(
+        db,
+        product_id,
+        quantity,
+    )
