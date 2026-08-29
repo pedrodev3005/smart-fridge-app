@@ -120,20 +120,28 @@ def resolve_unknown_product(
     db: Session,
     unknown_product_id: int,
     resolved_product_id: int,
+    resolved_quantity: int | None = None,
 ):
     unknown_product = get_pending_unknown_product(
         db,
         unknown_product_id,
     )
 
+    quantity = (
+        unknown_product.quantity
+        if resolved_quantity is None
+        else resolved_quantity
+    )
+
     inventory_item, event = process_inventory_movement_with_event(
         db,
         product_id=resolved_product_id,
         movement_type=unknown_product.movement_type,
-        quantity=unknown_product.quantity,
+        quantity=quantity,
         event_timestamp=unknown_product.detected_at,
     )
 
+    unknown_product.quantity = quantity
     unknown_product.status = UnknownProductStatus.RESOLVED
     unknown_product.reviewed_at = datetime.now(
         timezone.utc
