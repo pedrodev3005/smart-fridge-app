@@ -20,3 +20,8 @@ class ProductMatchType(str, Enum):
     SINGLE_CANDIDATE = "single_candidate"
     MULTIPLE_CANDIDATES = "multiple_candidates"
     NONE = "none"
+
+
+class InventoryMovementType(str, Enum):
+    ENTRY = "entry"
+    EXIT = "exit"

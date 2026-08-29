@@ -1,6 +1,10 @@
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.enums import ProductCategory, ProductMatchType
+from app.enums import (
+    InventoryMovementType,
+    ProductCategory,
+    ProductMatchType,
+)
 
 
 class ProductIdentity(BaseModel):
@@ -56,13 +60,14 @@ class ProductBase(ProductIdentity):
 
 class ProductCreate(ProductBase):
     model_config = ConfigDict(
+        extra="forbid",
         json_schema_extra={
             "example": {
                 "name": "Iogurte Natural",
                 "brand": "Nestlé",
                 "category": "Laticínios",
             }
-        }
+        },
     )
 
 
@@ -74,12 +79,13 @@ class ProductResponse(ProductBase):
 
 class ProductMatchRequest(ProductIdentity):
     model_config = ConfigDict(
+        extra="forbid",
         json_schema_extra={
             "example": {
                 "name": "Suco de Uva",
                 "brand": "Quinta do Morgado",
             }
-        }
+        },
     )
 
 
@@ -87,3 +93,28 @@ class ProductMatchResponse(BaseModel):
     match_type: ProductMatchType
     exact_match: ProductResponse | None = None
     candidates: list[ProductResponse] = Field(default_factory=list)
+
+
+class InventoryMovementRequest(BaseModel):
+    product_id: int = Field(
+        ge=1,
+        strict=True,
+    )
+
+    movement_type: InventoryMovementType
+
+    quantity: int = Field(
+        ge=1,
+        strict=True,
+    )
+
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "example": {
+                "product_id": 2,
+                "movement_type": "entry",
+                "quantity": 3,
+            }
+        },
+    )
