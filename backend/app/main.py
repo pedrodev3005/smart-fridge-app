@@ -6,7 +6,11 @@ from sqlalchemy.orm import Session
 
 from app import models
 from app.database import Base, engine, get_db
-from app.product_service import create_product, find_exact_product
+from app.product_service import (
+    create_product,
+    find_exact_product,
+    list_products,
+)
 from app.schemas import ProductCreate, ProductResponse
 
 
@@ -22,6 +26,14 @@ DbSession = Annotated[Session, Depends(get_db)]
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get(
+    "/products",
+    response_model=list[ProductResponse],
+)
+def get_products(db: DbSession):
+    return list_products(db)
 
 
 @app.post(

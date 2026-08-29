@@ -52,3 +52,11 @@ def create_product(
         raise
 
     return product
+
+
+def list_products(db: Session) -> list[Product]:
+    return list(
+        db.scalars(
+            select(Product).order_by(Product.name)
+        ).all()
+    )
