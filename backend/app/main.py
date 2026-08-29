@@ -27,6 +27,7 @@ from app.schemas import (
     EventResponse,
     UnknownProductCreateRequest,
     UnknownProductResponse,
+    UnknownProductResolveRequest,
 )
 from app.inventory_service import (
     InsufficientInventoryError,
@@ -45,6 +46,7 @@ from app.unknown_product_service import (
     dismiss_unknown_product,
     get_unknown_product_by_id,
     list_unknown_products,
+    resolve_unknown_product,
 )
 
 
@@ -204,6 +206,90 @@ def dismiss_unknown_product_review(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="A revisão viola uma restrição do banco de dados.",
+        )
+
+    except Exception:
+        db.rollback()
+        raise
+
+
+@app.post(
+    "/unknown-products/{unknown_product_id}/resolve",
+    response_model=UnknownProductResponse,
+    responses={
+        404: {
+            "model": ErrorResponse,
+            "description": "Produto desconhecido ou produto de destino não encontrado.",
+        },
+        409: {
+            "model": ErrorResponse,
+            "description": "Produto já revisado ou movimentação incompatível com o inventário.",
+        },
+    },
+)
+def resolve_unknown_product_review(
+    unknown_product_id: UnknownProductId,
+    resolution_data: UnknownProductResolveRequest,
+    db: DbSession,
+):
+    try:
+        unknown_product, _inventory_item, _event = resolve_unknown_product(
+            db,
+            unknown_product_id=unknown_product_id,
+            resolved_product_id=resolution_data.resolved_product_id,
+            resolved_quantity=resolution_data.resolved_quantity,
+        )
+
+        db.commit()
+
+        db.refresh(unknown_product)
+        db.refresh(
+            unknown_product,
+            attribute_names=["resolved_product"],
+        )
+
+        return unknown_product
+
+    except UnknownProductNotFoundError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        )
+
+    except UnknownProductAlreadyReviewedError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        )
+
+    except InventoryProductNotFoundError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        )
+
+    except InventoryItemNotFoundError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        )
+
+    except InsufficientInventoryError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        )
+
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A resolução viola uma restrição do banco de dados.",
         )
 
     except Exception:
