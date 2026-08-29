@@ -13,3 +13,10 @@ class ProductCategory(str, Enum):
     CONDIMENTS = "Molhos e condimentos"
     OTHER = "Outros"
     UNCATEGORIZED = "Não categorizado"
+
+
+class ProductMatchType(str, Enum):
+    EXACT = "exact"
+    SINGLE_CANDIDATE = "single_candidate"
+    MULTIPLE_CANDIDATES = "multiple_candidates"
+    NONE = "none"
