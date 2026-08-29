@@ -31,3 +31,6 @@ __pycache__/
 # Vision generated files
 vision/images/*
 !vision/images/.gitkeep
+
+# Database
+*.db
