@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -138,7 +140,7 @@ class InventoryResponse(BaseModel):
 class ErrorResponse(BaseModel):
     detail: str
 
-    
+
 class InventoryMovementResponse(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
@@ -207,3 +209,22 @@ class InventoryMovementResponse(BaseModel):
             )
 
         return self
+    
+
+class EventResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    event_type: InventoryMovementType
+    product_id: int
+    quantity: int
+    timestamp: datetime
+    product: ProductResponse
+
+    @field_validator("timestamp")
+    @classmethod
+    def ensure_utc_timezone(cls, value: datetime) -> datetime:
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+
+        return value

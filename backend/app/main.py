@@ -4,7 +4,9 @@ from fastapi import Depends, FastAPI, HTTPException, Path, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+
 from app import models
+from app.event_service import list_events
 from app.database import Base, engine, get_db
 from app.product_service import (
     create_product,
@@ -22,6 +24,7 @@ from app.schemas import (
     InventoryMovementRequest,
     InventoryMovementResponse,
     ErrorResponse,
+    EventResponse,
 )
 from app.inventory_service import (
     InsufficientInventoryError,
@@ -56,6 +59,14 @@ def health():
 )
 def get_inventory(db: DbSession):
     return list_inventory(db)
+
+
+@app.get(
+    "/events",
+    response_model=list[EventResponse],
+)
+def get_events(db: DbSession):
+    return list_events(db)
 
 
 @app.post(
