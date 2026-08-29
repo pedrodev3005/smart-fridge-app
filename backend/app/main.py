@@ -39,7 +39,10 @@ from app.inventory_service import (
     process_inventory_movement_with_event,
 )
 from app.unknown_product_service import (
+    UnknownProductAlreadyReviewedError,
+    UnknownProductNotFoundError,
     create_unknown_product,
+    dismiss_unknown_product,
     get_unknown_product_by_id,
     list_unknown_products,
 )
@@ -153,6 +156,61 @@ def get_unknown_product(
     return unknown_product
 
 
+@app.post(
+    "/unknown-products/{unknown_product_id}/dismiss",
+    response_model=UnknownProductResponse,
+    responses={
+        404: {
+            "model": ErrorResponse,
+            "description": "Produto desconhecido não encontrado.",
+        },
+        409: {
+            "model": ErrorResponse,
+            "description": "Produto desconhecido já foi revisado.",
+        },
+    },
+)
+def dismiss_unknown_product_review(
+    unknown_product_id: UnknownProductId,
+    db: DbSession,
+):
+    try:
+        unknown_product = dismiss_unknown_product(
+            db,
+            unknown_product_id,
+        )
+
+        db.commit()
+        db.refresh(unknown_product)
+
+        return unknown_product
+
+    except UnknownProductNotFoundError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        )
+
+    except UnknownProductAlreadyReviewedError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        )
+
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A revisão viola uma restrição do banco de dados.",
+        )
+
+    except Exception:
+        db.rollback()
+        raise
+
+    
 @app.post(
     "/inventory/movements",
     response_model=InventoryMovementResponse,
