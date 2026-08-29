@@ -25,6 +25,8 @@ from app.schemas import (
     InventoryMovementResponse,
     ErrorResponse,
     EventResponse,
+    UnknownProductCreateRequest,
+    UnknownProductResponse,
 )
 from app.inventory_service import (
     InsufficientInventoryError,
@@ -35,6 +37,10 @@ from app.inventory_service import (
     InventoryProductNotFoundError,
     list_inventory,
     process_inventory_movement_with_event,
+)
+from app.unknown_product_service import (
+    create_unknown_product,
+    list_unknown_products,
 )
 
 
@@ -67,6 +73,54 @@ def get_inventory(db: DbSession):
 )
 def get_events(db: DbSession):
     return list_events(db)
+
+
+@app.post(
+    "/unknown-products",
+    response_model=UnknownProductResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        400: {
+            "model": ErrorResponse,
+            "description": "Dados do produto desconhecido inválidos.",
+        },
+    },
+)
+def register_unknown_product(
+    unknown_data: UnknownProductCreateRequest,
+    db: DbSession,
+):
+    try:
+        unknown_product = create_unknown_product(
+            db,
+            image_path=unknown_data.image_path,
+            movement_type=unknown_data.movement_type,
+            quantity=unknown_data.quantity,
+        )
+
+        db.commit()
+        db.refresh(unknown_product)
+
+        return unknown_product
+
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Os dados do produto desconhecido violam as restrições do banco.",
+        )
+
+    except Exception:
+        db.rollback()
+        raise
+
+
+@app.get(
+    "/unknown-products",
+    response_model=list[UnknownProductResponse],
+)
+def get_unknown_products(db: DbSession):
+    return list_unknown_products(db)
 
 
 @app.post(

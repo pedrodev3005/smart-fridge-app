@@ -265,7 +265,22 @@ class UnknownProductCreateRequest(BaseModel):
         return value
     
 class UnknownProductResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "id": 1,
+                "image_path": "vision/captures/unknown_001.jpg",
+                "movement_type": "entry",
+                "quantity": 1,
+                "status": "pending",
+                "detected_at": "2026-08-29T18:11:03Z",
+                "reviewed_at": None,
+                "resolved_product_id": None,
+                "resolved_product": None,
+            }
+        },
+    )
 
     id: int
     image_path: str
