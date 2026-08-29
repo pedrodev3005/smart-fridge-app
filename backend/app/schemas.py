@@ -1,4 +1,10 @@
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
 
 from app.enums import (
     InventoryMovementType,
@@ -127,3 +133,77 @@ class InventoryResponse(BaseModel):
     product_id: int
     quantity: int
     product: ProductResponse
+
+
+class ErrorResponse(BaseModel):
+    detail: str
+
+    
+class InventoryMovementResponse(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "product_id": 2,
+                "movement_type": "entry",
+                "quantity_moved": 3,
+                "final_quantity": 3,
+                "inventory_item": {
+                    "id": 1,
+                    "product_id": 2,
+                    "quantity": 3,
+                    "product": {
+                        "name": "Maçã",
+                        "brand": None,
+                        "category": "Não categorizado",
+                        "id": 2,
+                    },
+                },
+            }
+        }
+    )
+        
+    product_id: int = Field(
+        ge=1,
+        strict=True,
+    )
+
+    movement_type: InventoryMovementType
+
+    quantity_moved: int = Field(
+        ge=1,
+        strict=True,
+    )
+
+    final_quantity: int = Field(
+        ge=0,
+        strict=True,
+    )
+
+    inventory_item: InventoryResponse | None = None
+
+    @model_validator(mode="after")
+    def validate_inventory_consistency(self):
+        if self.final_quantity == 0:
+            if self.inventory_item is not None:
+                raise ValueError(
+                    "inventory_item deve ser nulo quando final_quantity for 0."
+                )
+
+            return self
+
+        if self.inventory_item is None:
+            raise ValueError(
+                "inventory_item é obrigatório quando final_quantity for maior que 0."
+            )
+
+        if self.inventory_item.quantity != self.final_quantity:
+            raise ValueError(
+                "A quantidade do inventory_item deve ser igual a final_quantity."
+            )
+
+        if self.inventory_item.product_id != self.product_id:
+            raise ValueError(
+                "O product_id do inventory_item deve corresponder ao product_id da movimentação."
+            )
+
+        return self
