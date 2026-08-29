@@ -29,6 +29,8 @@ from app.schemas import (
     UnknownProductCreateRequest,
     UnknownProductResponse,
     UnknownProductResolveRequest,
+    NutritionResponse,
+    NutritionCreateRequest,
 )
 from app.inventory_service import (
     InsufficientInventoryError,
@@ -48,6 +50,12 @@ from app.unknown_product_service import (
     get_unknown_product_by_id,
     list_unknown_products,
     resolve_unknown_product,
+)
+from app.nutrition_service import (
+    NutritionAlreadyExistsError,
+    NutritionProductNotFoundError,
+    create_nutrition,
+    get_nutrition_by_product_id,
 )
 
 
@@ -465,6 +473,94 @@ def get_product(
 
     return product
 
+
+@app.get(
+    "/products/{product_id}/nutrition",
+    response_model=NutritionResponse,
+    responses={
+        404: {
+            "model": ErrorResponse,
+            "description": "Informações nutricionais não encontradas.",
+        },
+    },
+)
+def get_product_nutrition(
+    product_id: ProductId,
+    db: DbSession,
+):
+    product = get_product_by_id(
+        db,
+        product_id,
+    )
+
+    if product is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Produto {product_id} não encontrado.",
+        )
+
+    nutrition = get_nutrition_by_product_id(
+        db,
+        product_id,
+    )
+
+    if nutrition is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"O produto {product_id} não possui informações nutricionais cadastradas.",
+        )
+
+    return nutrition
+
+
+@app.post(
+    "/products/{product_id}/nutrition",
+    response_model=NutritionResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        404: {
+            "model": ErrorResponse,
+            "description": "Produto não encontrado.",
+        },
+        409: {
+            "model": ErrorResponse,
+            "description": "Informações nutricionais já cadastradas.",
+        },
+    },
+)
+def register_product_nutrition(
+    product_id: ProductId,
+    nutrition_data: NutritionCreateRequest,
+    db: DbSession,
+):
+    try:
+        nutrition = create_nutrition(
+            db,
+            product_id=product_id,
+            nutrition_data=nutrition_data,
+        )
+
+        db.commit()
+        db.refresh(nutrition)
+
+        return nutrition
+
+    except NutritionProductNotFoundError as exc:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+
+    except NutritionAlreadyExistsError as exc:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
+    
 
 @app.post(
     "/products",
