@@ -1,4 +1,10 @@
-from sqlalchemy import CheckConstraint, Enum as SqlEnum, Integer, String
+from sqlalchemy import (
+    CheckConstraint,
+    Enum as SqlEnum,
+    ForeignKey,
+    Integer,
+    String,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -54,4 +60,35 @@ class Product(Base):
         nullable=False,
         default=ProductCategory.UNCATEGORIZED,
         server_default=ProductCategory.UNCATEGORIZED.value,
+    )
+
+
+class Inventory(Base):
+    __tablename__ = "inventory"
+
+    __table_args__ = (
+        CheckConstraint(
+            "typeof(quantity) = 'integer' AND quantity >= 1",
+            name="ck_inventory_quantity_valid",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        index=True,
+    )
+
+    product_id: Mapped[int] = mapped_column(
+        ForeignKey(
+            "products.id",
+            ondelete="RESTRICT",
+        ),
+        nullable=False,
+        unique=True,
+    )
+
+    quantity: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
     )
