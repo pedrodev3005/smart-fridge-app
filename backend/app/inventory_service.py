@@ -24,7 +24,7 @@ def get_inventory_by_product_id(
     )
 
 
-class InventoryProductNotFoundError(Exception):
+class InvalidProductIdError(Exception):
     pass
 
 
@@ -32,20 +32,22 @@ class InvalidInventoryQuantityError(Exception):
     pass
 
 
-def add_inventory_entry(
-    db: Session,
-    product_id: int,
-    quantity: int,
-) -> Inventory:
+class InventoryProductNotFoundError(Exception):
+    pass
+
+
+def _validate_product_id(product_id: int) -> None:
     if (
         isinstance(product_id, bool)
         or not isinstance(product_id, int)
         or product_id < 1
     ):
-        raise InventoryProductNotFoundError(
+        raise InvalidProductIdError(
             "O ID do produto deve ser um número inteiro maior ou igual a 1."
         )
 
+
+def _validate_quantity(quantity: int) -> None:
     if (
         isinstance(quantity, bool)
         or not isinstance(quantity, int)
@@ -54,6 +56,15 @@ def add_inventory_entry(
         raise InvalidInventoryQuantityError(
             "A quantidade deve ser um número inteiro maior ou igual a 1."
         )
+    
+
+def add_inventory_entry(
+    db: Session,
+    product_id: int,
+    quantity: int,
+) -> Inventory:
+    _validate_product_id(product_id)
+    _validate_quantity(quantity)
 
     product = get_product_by_id(db, product_id)
 
