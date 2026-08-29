@@ -40,6 +40,7 @@ from app.inventory_service import (
 )
 from app.unknown_product_service import (
     create_unknown_product,
+    get_unknown_product_by_id,
     list_unknown_products,
 )
 
@@ -52,6 +53,7 @@ app = FastAPI(title="Smart Fridge API")
 
 DbSession = Annotated[Session, Depends(get_db)]
 ProductId = Annotated[int, Path(ge=1)]
+UnknownProductId = Annotated[int, Path(ge=1)]
 
 
 @app.get("/health")
@@ -121,6 +123,34 @@ def register_unknown_product(
 )
 def get_unknown_products(db: DbSession):
     return list_unknown_products(db)
+
+
+@app.get(
+    "/unknown-products/{unknown_product_id}",
+    response_model=UnknownProductResponse,
+    responses={
+        404: {
+            "model": ErrorResponse,
+            "description": "Produto desconhecido não encontrado.",
+        },
+    },
+)
+def get_unknown_product(
+    unknown_product_id: UnknownProductId,
+    db: DbSession,
+):
+    unknown_product = get_unknown_product_by_id(
+        db,
+        unknown_product_id,
+    )
+
+    if unknown_product is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Produto desconhecido {unknown_product_id} não encontrado.",
+        )
+
+    return unknown_product
 
 
 @app.post(
