@@ -15,6 +15,7 @@ from app.database import Base
 from app.enums import (
     InventoryMovementType,
     ProductCategory,
+    UnknownProductStatus,
 )
 
 
@@ -152,5 +153,109 @@ class Event(Base):
     )
 
     product: Mapped["Product"] = relationship(
+        "Product",
+    )
+
+
+class UnknownProduct(Base):
+    __tablename__ = "unknown_products"
+
+    __table_args__ = (
+        CheckConstraint(
+            "length(trim(image_path)) > 0",
+            name="ck_unknown_products_image_path_not_blank",
+        ),
+        CheckConstraint(
+            "length(image_path) <= 500",
+            name="ck_unknown_products_image_path_max_length",
+        ),
+        CheckConstraint(
+            "typeof(quantity) = 'integer' AND quantity >= 1",
+            name="ck_unknown_products_quantity_valid",
+        ),
+        CheckConstraint(
+            """
+            (
+                status = 'pending'
+                AND reviewed_at IS NULL
+                AND resolved_product_id IS NULL
+            )
+            OR
+            (
+                status = 'resolved'
+                AND reviewed_at IS NOT NULL
+                AND resolved_product_id IS NOT NULL
+            )
+            OR
+            (
+                status = 'dismissed'
+                AND reviewed_at IS NOT NULL
+                AND resolved_product_id IS NULL
+            )
+            """,
+            name="ck_unknown_products_status_consistency",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        index=True,
+    )
+
+    image_path: Mapped[str] = mapped_column(
+        String(500),
+        nullable=False,
+    )
+
+    movement_type: Mapped[InventoryMovementType] = mapped_column(
+        SqlEnum(
+            InventoryMovementType,
+            values_callable=lambda enum: [item.value for item in enum],
+            native_enum=False,
+            create_constraint=True,
+            name="unknown_product_movement_type",
+        ),
+        nullable=False,
+    )
+
+    quantity: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+    )
+
+    status: Mapped[UnknownProductStatus] = mapped_column(
+        SqlEnum(
+            UnknownProductStatus,
+            values_callable=lambda enum: [item.value for item in enum],
+            native_enum=False,
+            create_constraint=True,
+            name="unknown_product_status",
+        ),
+        nullable=False,
+        default=UnknownProductStatus.PENDING,
+        server_default=UnknownProductStatus.PENDING.value,
+    )
+
+    detected_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        server_default=func.current_timestamp(),
+    )
+
+    reviewed_at: Mapped[datetime | None] = mapped_column(
+        DateTime,
+        nullable=True,
+    )
+
+    resolved_product_id: Mapped[int | None] = mapped_column(
+        ForeignKey(
+            "products.id",
+            ondelete="RESTRICT",
+        ),
+        nullable=True,
+    )
+
+    resolved_product: Mapped["Product | None"] = relationship(
         "Product",
     )

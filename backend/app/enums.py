@@ -25,3 +25,9 @@ class ProductMatchType(str, Enum):
 class InventoryMovementType(str, Enum):
     ENTRY = "entry"
     EXIT = "exit"
+
+
+class UnknownProductStatus(str, Enum):
+    PENDING = "pending"
+    RESOLVED = "resolved"
+    DISMISSED = "dismissed"
