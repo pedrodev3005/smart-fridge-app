@@ -36,6 +36,13 @@ class InventoryProductNotFoundError(Exception):
     pass
 
 
+class InventoryItemNotFoundError(Exception):
+    pass
+
+
+class InsufficientInventoryError(Exception):
+    pass
+
 def _validate_product_id(product_id: int) -> None:
     if (
         isinstance(product_id, bool)
@@ -87,6 +94,51 @@ def add_inventory_entry(
     else:
         inventory_item.quantity += quantity
 
+    db.flush()
+
+    return inventory_item
+
+
+def remove_inventory_exit(
+    db: Session,
+    product_id: int,
+    quantity: int,
+) -> Inventory | None:
+    _validate_product_id(product_id)
+    _validate_quantity(quantity)
+
+    product = get_product_by_id(db, product_id)
+
+    if product is None:
+        raise InventoryProductNotFoundError(
+            f"Produto {product_id} não encontrado."
+        )
+
+    inventory_item = get_inventory_by_product_id(
+        db,
+        product_id,
+    )
+
+    if inventory_item is None:
+        raise InventoryItemNotFoundError(
+            f"Produto {product_id} não está presente no inventário."
+        )
+
+    if quantity > inventory_item.quantity:
+        raise InsufficientInventoryError(
+            (
+                f"Quantidade insuficiente para o produto {product_id}. "
+                f"Disponível: {inventory_item.quantity}. "
+                f"Solicitado: {quantity}."
+            )
+        )
+
+    if quantity == inventory_item.quantity:
+        db.delete(inventory_item)
+        db.flush()
+        return None
+
+    inventory_item.quantity -= quantity
     db.flush()
 
     return inventory_item
