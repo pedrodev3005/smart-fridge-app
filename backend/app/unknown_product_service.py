@@ -150,4 +150,9 @@ def resolve_unknown_product(
 
     db.flush()
 
+    db.refresh(
+        unknown_product,
+        attribute_names=["resolved_product"],
+    )
+
     return unknown_product, inventory_item, event

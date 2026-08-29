@@ -12,6 +12,7 @@ from app.enums import (
     InventoryMovementType,
     ProductCategory,
     ProductMatchType,
+    UnknownProductStatus,
 )
 
 
@@ -210,7 +211,6 @@ class InventoryMovementResponse(BaseModel):
 
         return self
     
-
 class EventResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -228,3 +228,133 @@ class EventResponse(BaseModel):
             return value.replace(tzinfo=timezone.utc)
 
         return value
+
+class UnknownProductCreateRequest(BaseModel):
+    image_path: str = Field(
+        min_length=1,
+        max_length=500,
+        strict=True,
+    )
+    movement_type: InventoryMovementType
+    quantity: int = Field(
+        ge=1,
+        strict=True,
+    )
+
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "example": {
+                "image_path": "vision/captures/unknown_001.jpg",
+                "movement_type": "entry",
+                "quantity": 1,
+            }
+        },
+    )
+
+    @field_validator("image_path")
+    @classmethod
+    def normalize_image_path(cls, value: str) -> str:
+        value = value.strip()
+
+        if not value:
+            raise ValueError(
+                "O caminho da imagem não pode estar vazio."
+            )
+
+        return value
+    
+class UnknownProductResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    image_path: str
+    movement_type: InventoryMovementType
+    quantity: int
+    status: UnknownProductStatus
+    detected_at: datetime
+    reviewed_at: datetime | None
+    resolved_product_id: int | None
+    resolved_product: ProductResponse | None
+
+    @field_validator("detected_at", "reviewed_at")
+    @classmethod
+    def ensure_utc_timezone(
+        cls,
+        value: datetime | None,
+    ) -> datetime | None:
+        if value is None:
+            return None
+
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+
+        return value
+    
+    @model_validator(mode="after")
+    def validate_status_consistency(self):
+        if self.status == UnknownProductStatus.PENDING:
+            if (
+                self.reviewed_at is not None
+                or self.resolved_product_id is not None
+                or self.resolved_product is not None
+            ):
+                raise ValueError(
+                    "Um produto pendente não pode possuir dados de revisão."
+                )
+
+        elif self.status == UnknownProductStatus.RESOLVED:
+            if self.reviewed_at is None:
+                raise ValueError(
+                    "Um produto resolvido deve possuir reviewed_at."
+                )
+
+            if (
+                self.resolved_product_id is None
+                or self.resolved_product is None
+            ):
+                raise ValueError(
+                    "Um produto resolvido deve possuir o produto associado."
+                )
+
+            if self.resolved_product.id != self.resolved_product_id:
+                raise ValueError(
+                    "resolved_product deve corresponder a resolved_product_id."
+                )
+
+        elif self.status == UnknownProductStatus.DISMISSED:
+            if self.reviewed_at is None:
+                raise ValueError(
+                    "Um produto descartado deve possuir reviewed_at."
+                )
+
+            if (
+                self.resolved_product_id is not None
+                or self.resolved_product is not None
+            ):
+                raise ValueError(
+                    "Um produto descartado não pode possuir produto associado."
+                )
+
+        return self
+
+class UnknownProductResolveRequest(BaseModel):
+    resolved_product_id: int = Field(
+        ge=1,
+        strict=True,
+    )
+    resolved_quantity: int | None = Field(
+        default=None,
+        ge=1,
+        strict=True,
+    )
+
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "example": {
+                "resolved_product_id": 2,
+                "resolved_quantity": 1,
+            }
+        },
+    )
