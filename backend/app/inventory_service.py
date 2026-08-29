@@ -1,6 +1,9 @@
-from app.event_service import create_event
+from datetime import datetime
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
+
+from app.event_service import create_event
 
 from app.enums import InventoryMovementType
 from app.models import Inventory
@@ -192,6 +195,7 @@ def process_inventory_movement_with_event(
     product_id: int,
     movement_type: InventoryMovementType,
     quantity: int,
+    event_timestamp: datetime | None = None,
 ):
     inventory_item = process_inventory_movement(
         db,
@@ -205,6 +209,7 @@ def process_inventory_movement_with_event(
         product_id=product_id,
         event_type=movement_type,
         quantity=quantity,
+        timestamp=event_timestamp,
     )
 
     return inventory_item, event

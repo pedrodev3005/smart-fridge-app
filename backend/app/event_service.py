@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
@@ -10,12 +12,18 @@ def create_event(
     product_id: int,
     event_type: InventoryMovementType,
     quantity: int,
+    timestamp: datetime | None = None,
 ) -> Event:
-    event = Event(
-        product_id=product_id,
-        event_type=event_type,
-        quantity=quantity,
-    )
+    event_data = {
+        "product_id": product_id,
+        "event_type": event_type,
+        "quantity": quantity,
+    }
+
+    if timestamp is not None:
+        event_data["timestamp"] = timestamp
+
+    event = Event(**event_data)
 
     db.add(event)
     db.flush()
