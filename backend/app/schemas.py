@@ -10,6 +10,7 @@ from pydantic import (
 
 from app.enums import (
     InventoryMovementType,
+    NutritionReferenceUnit,
     ProductCategory,
     ProductMatchType,
     UnknownProductStatus,
@@ -373,3 +374,140 @@ class UnknownProductResolveRequest(BaseModel):
             }
         },
     )
+
+
+class NutritionBase(BaseModel):
+    reference_amount: float = Field(gt=0)
+    reference_unit: NutritionReferenceUnit
+
+    energy_kcal: float | None = Field(
+        default=None,
+        ge=0,
+    )
+    carbohydrates_g: float | None = Field(
+        default=None,
+        ge=0,
+    )
+    protein_g: float | None = Field(
+        default=None,
+        ge=0,
+    )
+    total_fat_g: float | None = Field(
+        default=None,
+        ge=0,
+    )
+    fiber_g: float | None = Field(
+        default=None,
+        ge=0,
+    )
+    sodium_mg: float | None = Field(
+        default=None,
+        ge=0,
+    )
+
+    source_name: str = Field(
+        min_length=1,
+        max_length=150,
+    )
+    source_reference: str | None = Field(
+        default=None,
+        max_length=500,
+    )
+
+    @field_validator(
+        "reference_amount",
+        "energy_kcal",
+        "carbohydrates_g",
+        "protein_g",
+        "total_fat_g",
+        "fiber_g",
+        "sodium_mg",
+        mode="before",
+    )
+    @classmethod
+    def validate_numeric_values(cls, value):
+        if value is None:
+            return None
+
+        if isinstance(value, bool) or not isinstance(
+            value,
+            (int, float),
+        ):
+            raise ValueError(
+                "O valor deve ser numérico."
+            )
+
+        return value
+
+    @field_validator("source_name")
+    @classmethod
+    def normalize_source_name(cls, value: str) -> str:
+        value = value.strip()
+
+        if not value:
+            raise ValueError(
+                "A fonte dos dados não pode estar vazia."
+            )
+
+        return value
+
+    @field_validator("source_reference")
+    @classmethod
+    def normalize_source_reference(
+        cls,
+        value: str | None,
+    ) -> str | None:
+        if value is None:
+            return None
+
+        value = value.strip()
+
+        return value or None
+
+    @model_validator(mode="after")
+    def validate_has_nutrition_data(self):
+        nutrients = (
+            self.energy_kcal,
+            self.carbohydrates_g,
+            self.protein_g,
+            self.total_fat_g,
+            self.fiber_g,
+            self.sodium_mg,
+        )
+
+        if all(value is None for value in nutrients):
+            raise ValueError(
+                "Pelo menos um valor nutricional deve ser informado."
+            )
+
+        return self
+
+
+class NutritionCreateRequest(NutritionBase):
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "example": {
+                "reference_amount": 100,
+                "reference_unit": "g",
+                "energy_kcal": 50,
+                "carbohydrates_g": 12,
+                "protein_g": 1,
+                "total_fat_g": 0.5,
+                "fiber_g": 2,
+                "sodium_mg": 1,
+                "source_name": "Fonte nutricional",
+                "source_reference": "registro-001",
+            }
+        },
+    )
+
+
+class NutritionResponse(NutritionBase):
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
+
+    id: int
+    product_id: int
+    product: ProductResponse
