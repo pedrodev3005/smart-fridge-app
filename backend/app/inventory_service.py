@@ -1,5 +1,5 @@
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.enums import InventoryMovementType
 from app.models import Inventory
@@ -9,7 +9,9 @@ from app.product_service import get_product_by_id
 def list_inventory(db: Session) -> list[Inventory]:
     return list(
         db.scalars(
-            select(Inventory).order_by(Inventory.product_id)
+            select(Inventory)
+            .options(selectinload(Inventory.product))
+            .order_by(Inventory.product_id)
         ).all()
     )
 

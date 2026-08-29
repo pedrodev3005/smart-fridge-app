@@ -14,11 +14,13 @@ from app.product_service import (
     find_product_matches,
 )
 from app.schemas import (
+    InventoryResponse,
     ProductCreate,
     ProductMatchRequest,
     ProductMatchResponse,
     ProductResponse,
 )
+from app.inventory_service import list_inventory
 
 
 Base.metadata.create_all(bind=engine)
@@ -34,6 +36,14 @@ ProductId = Annotated[int, Path(ge=1)]
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get(
+    "/inventory",
+    response_model=list[InventoryResponse],
+)
+def get_inventory(db: DbSession):
+    return list_inventory(db)
 
 
 @app.get(
