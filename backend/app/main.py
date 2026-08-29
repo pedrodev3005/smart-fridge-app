@@ -34,7 +34,7 @@ from app.inventory_service import (
     InventoryItemNotFoundError,
     InventoryProductNotFoundError,
     list_inventory,
-    process_inventory_movement,
+    process_inventory_movement_with_event,
 )
 
 
@@ -92,7 +92,7 @@ def create_inventory_movement(
     db: DbSession,
 ):
     try:
-        inventory_item = process_inventory_movement(
+        inventory_item, _event = process_inventory_movement_with_event(
             db,
             product_id=movement_data.product_id,
             movement_type=movement_data.movement_type,

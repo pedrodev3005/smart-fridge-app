@@ -1,3 +1,4 @@
+from app.event_service import create_event
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
@@ -184,3 +185,26 @@ def process_inventory_movement(
         product_id,
         quantity,
     )
+
+
+def process_inventory_movement_with_event(
+    db: Session,
+    product_id: int,
+    movement_type: InventoryMovementType,
+    quantity: int,
+):
+    inventory_item = process_inventory_movement(
+        db,
+        product_id=product_id,
+        movement_type=movement_type,
+        quantity=quantity,
+    )
+
+    event = create_event(
+        db,
+        product_id=product_id,
+        event_type=movement_type,
+        quantity=quantity,
+    )
+
+    return inventory_item, event
