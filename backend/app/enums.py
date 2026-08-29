@@ -31,3 +31,8 @@ class UnknownProductStatus(str, Enum):
     PENDING = "pending"
     RESOLVED = "resolved"
     DISMISSED = "dismissed"
+
+
+class NutritionReferenceUnit(str, Enum):
+    GRAMS = "g"
+    MILLILITERS = "ml"

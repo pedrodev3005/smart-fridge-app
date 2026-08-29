@@ -4,6 +4,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     Enum as SqlEnum,
+    Float,
     ForeignKey,
     Integer,
     String,
@@ -14,6 +15,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 from app.enums import (
     InventoryMovementType,
+    NutritionReferenceUnit,
     ProductCategory,
     UnknownProductStatus,
 )
@@ -259,3 +261,171 @@ class UnknownProduct(Base):
     resolved_product: Mapped["Product | None"] = relationship(
         "Product",
     )
+
+
+class Nutrition(Base):
+    __tablename__ = "nutrition"
+
+    __table_args__ = (
+        CheckConstraint(
+            """
+            typeof(reference_amount) IN ('integer', 'real')
+            AND reference_amount > 0
+            """,
+            name="ck_nutrition_reference_amount_positive",
+        ),
+        CheckConstraint(
+            """
+            energy_kcal IS NULL
+            OR (
+                typeof(energy_kcal) IN ('integer', 'real')
+                AND energy_kcal >= 0
+            )
+            """,
+            name="ck_nutrition_energy_non_negative",
+        ),
+        CheckConstraint(
+            """
+            carbohydrates_g IS NULL
+            OR (
+                typeof(carbohydrates_g) IN ('integer', 'real')
+                AND carbohydrates_g >= 0
+            )
+            """,
+            name="ck_nutrition_carbohydrates_non_negative",
+        ),
+        CheckConstraint(
+            """
+            protein_g IS NULL
+            OR (
+                typeof(protein_g) IN ('integer', 'real')
+                AND protein_g >= 0
+            )
+            """,
+            name="ck_nutrition_protein_non_negative",
+        ),
+        CheckConstraint(
+            """
+            total_fat_g IS NULL
+            OR (
+                typeof(total_fat_g) IN ('integer', 'real')
+                AND total_fat_g >= 0
+            )
+            """,
+            name="ck_nutrition_total_fat_non_negative",
+        ),
+        CheckConstraint(
+            """
+            fiber_g IS NULL
+            OR (
+                typeof(fiber_g) IN ('integer', 'real')
+                AND fiber_g >= 0
+            )
+            """,
+            name="ck_nutrition_fiber_non_negative",
+        ),
+        CheckConstraint(
+            """
+            sodium_mg IS NULL
+            OR (
+                typeof(sodium_mg) IN ('integer', 'real')
+                AND sodium_mg >= 0
+            )
+            """,
+            name="ck_nutrition_sodium_non_negative",
+        ),
+        CheckConstraint(
+            """
+            energy_kcal IS NOT NULL
+            OR carbohydrates_g IS NOT NULL
+            OR protein_g IS NOT NULL
+            OR total_fat_g IS NOT NULL
+            OR fiber_g IS NOT NULL
+            OR sodium_mg IS NOT NULL
+            """,
+            name="ck_nutrition_has_at_least_one_value",
+        ),
+        CheckConstraint(
+            "length(trim(source_name)) > 0",
+            name="ck_nutrition_source_name_not_blank",
+        ),
+        CheckConstraint(
+            "length(source_name) <= 150",
+            name="ck_nutrition_source_name_max_length",
+        ),
+        CheckConstraint(
+            "source_reference IS NULL OR length(trim(source_reference)) > 0",
+            name="ck_nutrition_source_reference_not_blank",
+        ),
+        CheckConstraint(
+            "source_reference IS NULL OR length(source_reference) <= 500",
+            name="ck_nutrition_source_reference_max_length",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        index=True,
+    )
+
+    product_id: Mapped[int] = mapped_column(
+        ForeignKey("products.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+    )
+
+    reference_amount: Mapped[float] = mapped_column(
+        Float,
+        nullable=False,
+    )
+
+    reference_unit: Mapped[NutritionReferenceUnit] = mapped_column(
+        SqlEnum(
+            NutritionReferenceUnit,
+            values_callable=lambda enum: [
+                item.value for item in enum
+            ],
+            native_enum=False,
+            create_constraint=True,
+            name="nutrition_reference_unit",
+        ),
+        nullable=False,
+    )
+
+    energy_kcal: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+    )
+    carbohydrates_g: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+    )
+    protein_g: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+    )
+    total_fat_g: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+    )
+    fiber_g: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+    )
+    sodium_mg: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+    )
+
+    source_name: Mapped[str] = mapped_column(
+        String(150),
+        nullable=False,
+    )
+
+    source_reference: Mapped[str | None] = mapped_column(
+        String(500),
+        nullable=True,
+    )
+
+    product: Mapped["Product"] = relationship("Product")
