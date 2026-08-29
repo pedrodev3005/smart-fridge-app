@@ -40,20 +40,25 @@ def create_unknown_product(
 
 def list_unknown_products(
     db: Session,
+    status: UnknownProductStatus | None = None,
 ) -> list[UnknownProduct]:
+    query = (
+        select(UnknownProduct)
+        .options(selectinload(UnknownProduct.resolved_product))
+    )
+
+    if status is not None:
+        query = query.where(
+            UnknownProduct.status == status
+        )
+
+    query = query.order_by(
+        UnknownProduct.detected_at.desc(),
+        UnknownProduct.id.desc(),
+    )
+
     return list(
-        db.scalars(
-            select(UnknownProduct)
-            .options(
-                selectinload(
-                    UnknownProduct.resolved_product
-                )
-            )
-            .order_by(
-                UnknownProduct.detected_at.desc(),
-                UnknownProduct.id.desc(),
-            )
-        ).all()
+        db.scalars(query).all()
     )
 
 

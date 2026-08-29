@@ -1,11 +1,12 @@
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, HTTPException, Path, status
+from fastapi import Depends, FastAPI, HTTPException, Path, Query, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 
 from app import models
+from app.enums import UnknownProductStatus
 from app.event_service import list_events
 from app.database import Base, engine, get_db
 from app.product_service import (
@@ -126,8 +127,17 @@ def register_unknown_product(
     "/unknown-products",
     response_model=list[UnknownProductResponse],
 )
-def get_unknown_products(db: DbSession):
-    return list_unknown_products(db)
+def get_unknown_products(
+    db: DbSession,
+    status_filter: UnknownProductStatus | None = Query(
+        default=None,
+        alias="status",
+    ),
+):
+    return list_unknown_products(
+        db,
+        status=status_filter,
+    )
 
 
 @app.get(
