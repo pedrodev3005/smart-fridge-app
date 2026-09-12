@@ -1,5 +1,7 @@
 from datetime import datetime, timezone
 
+from typing import Literal
+
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -14,6 +16,7 @@ from app.enums import (
     ProductCategory,
     ProductMatchType,
     UnknownProductStatus,
+    VisionConfidence,
 )
 
 
@@ -103,6 +106,99 @@ class ProductMatchResponse(BaseModel):
     match_type: ProductMatchType
     exact_match: ProductResponse | None = None
     candidates: list[ProductResponse] = Field(default_factory=list)
+
+
+class VisionProductInput(BaseModel):
+    name: str | None = Field(
+        default=None,
+        min_length=2,
+        max_length=100,
+    )
+
+    brand: str | None = Field(
+        default=None,
+        max_length=100,
+    )
+
+    category: str | None = Field(
+        default=None,
+        max_length=100,
+    )
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator(
+        "name",
+        "brand",
+        "category",
+        mode="before",
+    )
+    @classmethod
+    def normalize_text_fields(cls, value):
+        if value is None:
+            return None
+
+        if not isinstance(value, str):
+            return value
+
+        normalized = " ".join(value.split())
+
+        return normalized or None
+
+
+class VisionEventInput(BaseModel):
+    movement_type: InventoryMovementType
+
+    product: VisionProductInput | None = None
+
+    confidence: VisionConfidence = VisionConfidence.NOT_INFORMED
+
+    quantity: int = Field(
+        default=1,
+        ge=1,
+        strict=True,
+    )
+
+    requires_confirmation: bool
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class VisionInteractionRequest(BaseModel):
+    interaction_id: str = Field(
+        min_length=1,
+        max_length=100,
+    )
+
+    timestamp: datetime
+
+    events: list[VisionEventInput] = Field(
+        min_length=1,
+    )
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("interaction_id")
+    @classmethod
+    def normalize_interaction_id(cls, value: str) -> str:
+        value = value.strip()
+
+        if not value:
+            raise ValueError(
+                "O interaction_id não pode estar vazio."
+            )
+
+        return value
+
+    @field_validator("timestamp")
+    @classmethod
+    def normalize_timestamp(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError(
+                "O timestamp deve incluir o fuso horário."
+            )
+
+        return value.astimezone(timezone.utc)
 
 
 class InventoryMovementRequest(BaseModel):
@@ -218,6 +314,7 @@ class EventResponse(BaseModel):
     id: int
     event_type: InventoryMovementType
     product_id: int
+    vision_interaction_id: int | None
     quantity: int
     timestamp: datetime
     product: ProductResponse
@@ -284,9 +381,16 @@ class UnknownProductResponse(BaseModel):
     )
 
     id: int
-    image_path: str
+    image_path: str | None
     movement_type: InventoryMovementType
     quantity: int
+    vision_interaction_id: int | None
+
+    detected_name: str | None
+    detected_brand: str | None
+    detected_category: str | None
+    confidence: VisionConfidence | None
+
     status: UnknownProductStatus
     detected_at: datetime
     reviewed_at: datetime | None
@@ -374,6 +478,61 @@ class UnknownProductResolveRequest(BaseModel):
             }
         },
     )
+
+
+class VisionEventResultResponse(BaseModel):
+    status: Literal["processed", "pending"]
+
+    product_id: int | None = None
+    inventory_item: InventoryResponse | None = None
+    event: EventResponse | None = None
+    pending: UnknownProductResponse | None = None
+
+    @model_validator(mode="after")
+    def validate_result_consistency(self):
+        if self.status == "processed":
+            if self.product_id is None:
+                raise ValueError(
+                    "Um evento processado deve possuir product_id."
+                )
+
+            if self.event is None:
+                raise ValueError(
+                    "Um evento processado deve possuir event."
+                )
+
+            if self.pending is not None:
+                raise ValueError(
+                    "Um evento processado não pode possuir pending."
+                )
+
+        elif self.status == "pending":
+            if self.pending is None:
+                raise ValueError(
+                    "Um evento pendente deve possuir pending."
+                )
+
+            if self.inventory_item is not None or self.event is not None:
+                raise ValueError(
+                    "Um evento pendente não pode possuir movimentação processada."
+                )
+
+        return self
+
+
+class VisionInteractionResponse(BaseModel):
+    interaction_id: str
+    timestamp: datetime
+    received_at: datetime
+    results: list[VisionEventResultResponse]
+
+    @field_validator("timestamp", "received_at")
+    @classmethod
+    def ensure_utc_timezone(cls, value: datetime) -> datetime:
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+
+        return value
 
 
 class NutritionBase(BaseModel):

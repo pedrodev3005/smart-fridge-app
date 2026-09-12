@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.enums import (
     InventoryMovementType,
     UnknownProductStatus,
+    VisionConfidence,
 )
 from app.inventory_service import process_inventory_movement_with_event
 from app.models import UnknownProduct
@@ -21,16 +22,38 @@ class UnknownProductAlreadyReviewedError(Exception):
 
 def create_unknown_product(
     db: Session,
-    image_path: str,
+    image_path: str | None,
     movement_type: InventoryMovementType,
     quantity: int,
+    detected_at: datetime | None = None,
+    detected_name: str | None = None,
+    detected_brand: str | None = None,
+    detected_category: str | None = None,
+    confidence: VisionConfidence | None = None,
+    vision_interaction_id: int | None = None,
 ) -> UnknownProduct:
     unknown_product = UnknownProduct(
         image_path=image_path,
         movement_type=movement_type,
         quantity=quantity,
+        vision_interaction_id=vision_interaction_id,
+        detected_name=detected_name,
+        detected_brand=detected_brand,
+        detected_category=detected_category,
+        confidence=confidence,
         status=UnknownProductStatus.PENDING,
     )
+
+    if detected_at is not None:
+        if (
+            detected_at.tzinfo is not None
+            and detected_at.utcoffset() is not None
+        ):
+            detected_at = detected_at.astimezone(
+                timezone.utc
+            ).replace(tzinfo=None)
+
+        unknown_product.detected_at = detected_at
 
     db.add(unknown_product)
     db.flush()
@@ -144,6 +167,7 @@ def resolve_unknown_product(
         movement_type=unknown_product.movement_type,
         quantity=quantity,
         event_timestamp=unknown_product.detected_at,
+        vision_interaction_id=unknown_product.vision_interaction_id,
     )
 
     unknown_product.quantity = quantity

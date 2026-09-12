@@ -18,6 +18,7 @@ from app.enums import (
     NutritionReferenceUnit,
     ProductCategory,
     UnknownProductStatus,
+    VisionConfidence,
 )
 
 
@@ -143,6 +144,15 @@ class Event(Base):
         nullable=False,
     )
 
+    vision_interaction_id: Mapped[int | None] = mapped_column(
+        ForeignKey(
+            "vision_interactions.id",
+            ondelete="RESTRICT",
+        ),
+        nullable=True,
+        index=True,
+    )
+
     quantity: Mapped[int] = mapped_column(
         Integer,
         nullable=False,
@@ -159,16 +169,55 @@ class Event(Base):
     )
 
 
+class VisionInteraction(Base):
+    __tablename__ = "vision_interactions"
+
+    __table_args__ = (
+        CheckConstraint(
+            "length(trim(interaction_id)) > 0",
+            name="ck_vision_interactions_id_not_blank",
+        ),
+        CheckConstraint(
+            "length(interaction_id) <= 100",
+            name="ck_vision_interactions_id_max_length",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        index=True,
+    )
+
+    interaction_id: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+
+    timestamp: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+    )
+
+    received_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        server_default=func.current_timestamp(),
+    )
+
+
 class UnknownProduct(Base):
     __tablename__ = "unknown_products"
 
     __table_args__ = (
         CheckConstraint(
-            "length(trim(image_path)) > 0",
+            "image_path IS NULL OR length(trim(image_path)) > 0",
             name="ck_unknown_products_image_path_not_blank",
         ),
         CheckConstraint(
-            "length(image_path) <= 500",
+            "image_path IS NULL OR length(image_path) <= 500",
             name="ck_unknown_products_image_path_max_length",
         ),
         CheckConstraint(
@@ -205,9 +254,9 @@ class UnknownProduct(Base):
         index=True,
     )
 
-    image_path: Mapped[str] = mapped_column(
+    image_path: Mapped[str | None] = mapped_column(
         String(500),
-        nullable=False,
+        nullable=True,
     )
 
     movement_type: Mapped[InventoryMovementType] = mapped_column(
@@ -224,6 +273,43 @@ class UnknownProduct(Base):
     quantity: Mapped[int] = mapped_column(
         Integer,
         nullable=False,
+    )
+
+    vision_interaction_id: Mapped[int | None] = mapped_column(
+        ForeignKey(
+            "vision_interactions.id",
+            ondelete="RESTRICT",
+        ),
+        nullable=True,
+        index=True,
+    )
+
+    detected_name: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
+    detected_brand: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
+    detected_category: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
+    confidence: Mapped[VisionConfidence | None] = mapped_column(
+        SqlEnum(
+            VisionConfidence,
+            values_callable=lambda enum: [
+                item.value for item in enum
+            ],
+            native_enum=False,
+            create_constraint=True,
+            name="vision_confidence",
+        ),
+        nullable=True,
     )
 
     status: Mapped[UnknownProductStatus] = mapped_column(

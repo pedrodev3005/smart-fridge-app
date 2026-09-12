@@ -32,6 +32,8 @@ from app.schemas import (
     UnknownProductResolveRequest,
     NutritionResponse,
     NutritionCreateRequest,
+    VisionInteractionRequest,
+    VisionInteractionResponse,
 )
 from app.inventory_service import (
     InsufficientInventoryError,
@@ -57,6 +59,10 @@ from app.nutrition_service import (
     NutritionProductNotFoundError,
     create_nutrition,
     get_nutrition_by_product_id,
+)
+from app.vision_service import (
+    VisionInteractionAlreadyProcessedError,
+    process_vision_interaction,
 )
 
 
@@ -106,6 +112,58 @@ def get_inventory(db: DbSession):
 )
 def get_events(db: DbSession):
     return list_events(db)
+
+
+@app.post(
+    "/vision/interactions",
+    response_model=VisionInteractionResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        409: {
+            "model": ErrorResponse,
+            "description": "Interação da visão já processada.",
+        },
+    },
+)
+def register_vision_interaction(
+    interaction_data: VisionInteractionRequest,
+    db: DbSession,
+):
+    try:
+        interaction, results = process_vision_interaction(
+            db,
+            interaction_data,
+        )
+
+        db.commit()
+        db.refresh(interaction)
+
+        return VisionInteractionResponse(
+            interaction_id=interaction.interaction_id,
+            timestamp=interaction.timestamp,
+            received_at=interaction.received_at,
+            results=results,
+        )
+
+    except VisionInteractionAlreadyProcessedError as exc:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
+
+    except IntegrityError:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A interação já foi processada ou viola uma restrição do banco.",
+        )
+
+    except Exception:
+        db.rollback()
+        raise
 
 
 @app.post(

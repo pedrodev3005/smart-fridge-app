@@ -196,6 +196,7 @@ def process_inventory_movement_with_event(
     movement_type: InventoryMovementType,
     quantity: int,
     event_timestamp: datetime | None = None,
+    vision_interaction_id: int | None = None,
 ):
     inventory_item = process_inventory_movement(
         db,
@@ -210,6 +211,7 @@ def process_inventory_movement_with_event(
         event_type=movement_type,
         quantity=quantity,
         timestamp=event_timestamp,
+        vision_interaction_id=vision_interaction_id,
     )
 
     return inventory_item, event

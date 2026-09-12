@@ -36,3 +36,10 @@ class UnknownProductStatus(str, Enum):
 class NutritionReferenceUnit(str, Enum):
     GRAMS = "g"
     MILLILITERS = "ml"
+
+
+class VisionConfidence(str, Enum):
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+    NOT_INFORMED = "not_informed"

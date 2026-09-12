@@ -13,11 +13,13 @@ def create_event(
     event_type: InventoryMovementType,
     quantity: int,
     timestamp: datetime | None = None,
+    vision_interaction_id: int | None = None,
 ) -> Event:
     event_data = {
         "product_id": product_id,
         "event_type": event_type,
         "quantity": quantity,
+        "vision_interaction_id": vision_interaction_id,
     }
 
     if timestamp is not None:
