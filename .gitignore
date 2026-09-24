@@ -31,3 +31,5 @@ __pycache__/
 # Vision generated files
 vision/images/*
 !vision/images/.gitkeep
+!vision/images/estado1.png
+!vision/images/estado2.png
